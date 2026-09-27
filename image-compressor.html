@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>画像圧縮ツール</title>
+<style>
+  :root {
+    --bg: #1B1E24;
+    --panel: #23272F;
+    --panel-raised: #2B303A;
+    --line: #363C47;
+    --text: #E7E6E2;
+    --muted: #8A8F99;
+    --accent: #E0A147;
+    --accent-dim: #7A5A2A;
+    --good: #5FAE82;
+    --bad: #C5654F;
+    --mono: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 28px 18px 60px;
+  }
+
+  header {
+    margin-bottom: 22px;
+  }
+
+  header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 10px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+    background: var(--panel);
+  }
+
+  .dropzone.drag {
+    border-color: var(--accent);
+    background: var(--panel-raised);
+  }
+
+  .dropzone .big {
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .dropzone .small {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  input[type="file"] { display: none; }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 20px 0 6px;
+    padding: 14px 16px;
+    background: var(--panel);
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+
+  .controls label {
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .controls input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+
+  .controls .qval {
+    font-family: var(--mono);
+    font-size: 13px;
+    width: 40px;
+    text-align: right;
+    color: var(--accent);
+  }
+
+  .format-select {
+    display: flex;
+    gap: 6px;
+  }
+
+  .format-select button {
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .format-select button.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .list {
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .item {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+
+  .item img {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: var(--panel-raised);
+  }
+
+  .item .name {
+    font-size: 13.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+  }
+
+  .item .sizes {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .item .sizes .after { color: var(--text); }
+  .item .sizes .saved { color: var(--good); }
+  .item .sizes .saved.negative { color: var(--bad); }
+
+  .item .status {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .item .dl {
+    background: var(--accent);
+    color: #1B1E24;
+    text-decoration: none;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 13px;
+    border-radius: 7px;
+    white-space: nowrap;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .item .dl.disabled {
+    pointer-events: none;
+    opacity: .4;
+    background: var(--panel-raised);
+    color: var(--muted);
+  }
+
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 18px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .summary {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .summary strong {
+    color: var(--good);
+    font-family: var(--mono);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    border: none;
+    color: #1B1E24;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-primary:disabled {
+    background: var(--panel-raised);
+    color: var(--muted);
+    cursor: default;
+  }
+
+  .empty-hint {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px 0 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>画像圧縮ツール</h1>
+    <p>ブラウザ内だけで処理します。画像はどこにもアップロードされません。</p>
+  </header>
+
+  <div class="dropzone" id="dropzone">
+    <div class="big">ここに画像をドラッグ、またはタップして選択</div>
+    <div class="small">JPEG / PNG / WebP に対応・複数選択可</div>
+    <input type="file" id="fileInput" accept="image/*" multiple>
+  </div>
+
+  <div class="controls">
+    <label for="quality">画質</label>
+    <input type="range" id="quality" min="1" max="100" value="70">
+    <span class="qval" id="qval">70%</span>
+  </div>
+  <div class="controls" style="margin-top:8px;">
+    <label>出力形式</label>
+    <div class="format-select" id="formatSelect">
+      <button data-fmt="image/jpeg" class="active">JPEG</button>
+      <button data-fmt="image/webp">WebP</button>
+      <button data-fmt="image/png">PNG</button>
+    </div>
+  </div>
+  <div class="controls" style="margin-top:8px;">
+    <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
+      <input type="checkbox" id="seqEnabled" style="accent-color:var(--accent);">
+      連番でリネーム
+    </label>
+    <input type="text" id="seqBaseName" placeholder="例: 画像" value="画像"
+      style="flex:1; background:var(--panel-raised); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:6px 10px; font-size:13px; min-width:0;" disabled>
+  </div>
+
+  <div class="list" id="list"></div>
+  <div class="empty-hint" id="emptyHint">まだ画像がありません</div>
+  <p style="color:var(--muted); font-size:12px; margin-top:10px;">「保存」を押すと端末の共有シートが開きます。「画像を保存」を選べば長押しせずそのまま保存でき、「ファイルに保存」を選んで元と同じ場所・同じ名前にすれば置き換えもできます。共有に対応していない環境では通常のダウンロードになります。</p>
+
+  <div class="footer-row" id="footerRow" style="display:none;">
+    <div class="summary" id="summary"></div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn-secondary" id="clearBtn">クリア</button>
+      <button class="btn-primary" id="downloadAllBtn">すべてダウンロード</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const list = document.getElementById('list');
+  const emptyHint = document.getElementById('emptyHint');
+  const footerRow = document.getElementById('footerRow');
+  const summary = document.getElementById('summary');
+  const qualitySlider = document.getElementById('quality');
+  const qval = document.getElementById('qval');
+  const formatSelect = document.getElementById('formatSelect');
+  const clearBtn = document.getElementById('clearBtn');
+  const downloadAllBtn = document.getElementById('downloadAllBtn');
+  const seqEnabled = document.getElementById('seqEnabled');
+  const seqBaseName = document.getElementById('seqBaseName');
+
+  seqEnabled.addEventListener('change', () => {
+    seqBaseName.disabled = !seqEnabled.checked;
+  });
+
+  let currentFormat = 'image/jpeg';
+  let items = []; // {id, file, originalUrl, originalSize, compressedBlob, compressedSize, el}
+
+  function fmtBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  function dataUrlSize(dataUrl) {
+    const base64 = dataUrl.split(',')[1] || '';
+    const padding = (base64.match(/=+$/) || [''])[0].length;
+    return Math.floor(base64.length * 3 / 4) - padding;
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const [header, base64] = dataUrl.split(',');
+    const mimeMatch = header.match(/data:(.*?);base64/);
+    const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  function downloadViaAnchor(dataUrl, filename) {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  async function saveItem(item) {
+    const filename = renameFile(item, item.compressedFormat);
+    if (navigator.share && navigator.canShare) {
+      try {
+        const blob = dataUrlToBlob(item.compressedDataUrl);
+        const file = new File([blob], filename, { type: item.compressedFormat });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // user cancelled the share sheet
+      }
+    }
+    downloadViaAnchor(item.compressedDataUrl, filename);
+  }
+
+  function ext(mime) {
+    return mime === 'image/png' ? 'png' : (mime === 'image/webp' ? 'webp' : 'jpg');
+  }
+
+  qualitySlider.addEventListener('input', () => {
+    qval.textContent = qualitySlider.value + '%';
+    recompressAll();
+  });
+
+  formatSelect.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...formatSelect.children].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFormat = btn.dataset.fmt;
+    recompressAll();
+  });
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+  function handleFiles(fileList) {
+    const files = [...fileList].filter(f => f.type.startsWith('image/'));
+    files.forEach(addItem);
+  }
+
+  function addItem(file) {
+    const id = Math.random().toString(36).slice(2);
+    const item = {
+      id, file,
+      originalUrl: null,
+      originalSize: file.size,
+      compressedDataUrl: null,
+      compressedSize: null
+    };
+    items.push(item);
+    renderItem(item);
+    updateEmptyState();
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      item.originalUrl = reader.result;
+      const imgEl = document.getElementById('thumb-' + item.id);
+      if (imgEl) imgEl.src = item.originalUrl;
+      compress(item);
+    };
+    reader.onerror = () => {
+      const afterEl = document.getElementById('after-' + item.id);
+      if (afterEl) afterEl.textContent = '読み込み失敗';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderItem(item) {
+    const row = document.createElement('div');
+    row.className = 'item';
+    row.id = 'item-' + item.id;
+    row.innerHTML = `
+      <img id="thumb-${item.id}" alt="">
+      <div>
+        <div class="name">${item.file.name}</div>
+        <div class="sizes">
+          <span class="before">${fmtBytes(item.originalSize)}</span>
+          <span>→</span>
+          <span class="after" id="after-${item.id}">計算中…</span>
+          <span class="saved" id="saved-${item.id}"></span>
+        </div>
+      </div>
+      <button type="button" class="dl disabled" id="dl-${item.id}">保存</button>
+    `;
+    list.appendChild(row);
+  }
+
+  function compress(item) {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (currentFormat === 'image/jpeg') {
+          // JPEG has no transparency; fill white behind it
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.drawImage(img, 0, 0);
+        const q = currentFormat === 'image/png' ? undefined : (Number(qualitySlider.value) / 100);
+        const dataUrl = canvas.toDataURL(currentFormat, q);
+        item.compressedDataUrl = dataUrl;
+        item.compressedSize = dataUrlSize(dataUrl);
+        item.compressedFormat = currentFormat;
+        updateItemUI(item);
+      } catch (err) {
+        const afterEl = document.getElementById('after-' + item.id);
+        if (afterEl) afterEl.textContent = '失敗しました';
+        console.error(err);
+      }
+    };
+    img.onerror = () => {
+      const afterEl = document.getElementById('after-' + item.id);
+      if (afterEl) afterEl.textContent = '読み込み失敗';
+    };
+    img.src = item.originalUrl;
+  }
+
+  function updateItemUI(item) {
+    const afterEl = document.getElementById('after-' + item.id);
+    const savedEl = document.getElementById('saved-' + item.id);
+    const dlEl = document.getElementById('dl-' + item.id);
+    if (!afterEl) return;
+    afterEl.textContent = fmtBytes(item.compressedSize);
+    const diff = item.originalSize - item.compressedSize;
+    const pct = ((diff / item.originalSize) * 100).toFixed(0);
+    if (diff >= 0) {
+      savedEl.textContent = `-${pct}%`;
+      savedEl.className = 'saved';
+    } else {
+      savedEl.textContent = `+${Math.abs(pct)}%`;
+      savedEl.className = 'saved negative';
+    }
+    dlEl.classList.remove('disabled');
+    updateSummary();
+  }
+
+  function renameFile(item, mime) {
+    if (seqEnabled.checked) {
+      const base = seqBaseName.value.trim() || '画像';
+      const doneItems = items.filter(i => i.compressedDataUrl);
+      const idx = doneItems.indexOf(item) + 1;
+      const digits = Math.max(2, String(doneItems.length).length);
+      const padded = String(idx || 1).padStart(digits, '0');
+      return `${base}-${padded}.${ext(mime)}`;
+    }
+    const base = item.file.name.replace(/\.[^.]+$/, '');
+    return `${base}.${ext(mime)}`;
+  }
+
+  function recompressAll() {
+    items.forEach(item => {
+      const afterEl = document.getElementById('after-' + item.id);
+      if (afterEl) afterEl.textContent = '計算中…';
+      compress(item);
+    });
+  }
+
+  function updateSummary() {
+    const done = items.filter(i => i.compressedSize != null);
+    if (done.length === 0) { footerRow.style.display = 'none'; return; }
+    footerRow.style.display = 'flex';
+    const totalBefore = done.reduce((s, i) => s + i.originalSize, 0);
+    const totalAfter = done.reduce((s, i) => s + i.compressedSize, 0);
+    const pct = totalBefore > 0 ? (((totalBefore - totalAfter) / totalBefore) * 100).toFixed(0) : 0;
+    summary.innerHTML = `${done.length}件 · 合計 <strong>${pct}%</strong> 削減 (${fmtBytes(totalBefore)} → ${fmtBytes(totalAfter)})`;
+  }
+
+  function updateEmptyState() {
+    emptyHint.style.display = items.length === 0 ? 'block' : 'none';
+  }
+
+  clearBtn.addEventListener('click', () => {
+    items = [];
+    list.innerHTML = '';
+    footerRow.style.display = 'none';
+    updateEmptyState();
+  });
+
+  list.addEventListener('click', (e) => {
+    const btn = e.target.closest('.dl');
+    if (!btn || btn.classList.contains('disabled')) return;
+    const item = items.find(i => 'dl-' + i.id === btn.id);
+    if (item && item.compressedDataUrl) saveItem(item);
+  });
+
+  downloadAllBtn.addEventListener('click', async () => {
+    const done = items.filter(i => i.compressedDataUrl);
+    if (done.length === 0) return;
+    if (navigator.share && navigator.canShare) {
+      try {
+        const files = done.map(item => {
+          const filename = renameFile(item, item.compressedFormat);
+          const blob = dataUrlToBlob(item.compressedDataUrl);
+          return new File([blob], filename, { type: item.compressedFormat });
+        });
+        if (navigator.canShare({ files })) {
+          await navigator.share({ files });
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // user cancelled the share sheet
+      }
+    }
+    done.forEach(item => {
+      downloadViaAnchor(item.compressedDataUrl, renameFile(item, item.compressedFormat));
+    });
+  });
+})();
+</script>
+</body>
+</html>
